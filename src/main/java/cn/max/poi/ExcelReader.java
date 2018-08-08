@@ -56,7 +56,7 @@ public class ExcelReader extends DefaultHandler {
     /**
      * 单元格内容
      */
-    private Map<Integer, String> rowValueMap = new HashMap<>();
+    private List<String> rowValueList = new ArrayList<>();
 
     /**
      * 存储每一行所有单元格的list
@@ -171,7 +171,7 @@ public class ExcelReader extends DefaultHandler {
 
                 // 循环赋值null
                 for (int i = 0; i < (diff - 1); i++) {
-                    rowValueMap.put(curCol + i, null);
+                    rowValueList.add(null);
                 }
                 curCol += (diff - 1);
             }
@@ -181,7 +181,7 @@ public class ExcelReader extends DefaultHandler {
 
             // 判断上一个标签是否还是c，如果是c则表示漏了一行(使用清除内容会导致没有v标签)
             if (preEle == 'c') {
-                rowValueMap.put(curCol, null);
+                rowValueList.add(null);
                 curCol++;
             }
             preEle = 'c';
@@ -196,50 +196,44 @@ public class ExcelReader extends DefaultHandler {
      */
     @Override
     public void endElement(String uri, String localName, String name) {
-        // Process the last contents as required.
-        // Do now, as characters() may be called more than once
+        // 根据SST的索引值的到单元格的真正要存储的字符串
+        // 这时characters()方法可能会被调用多次
         if (nextIsString) {
             int idx = Integer.parseInt(lastContents);
             lastContents = new XSSFRichTextString(sst.getEntryAt(idx)).toString().trim();
             nextIsString = false;
         }
 
-
-        // v => 单元格的值，如果单元格是字符串则v标签的值为该字符串在SST中的索引
-        // 将单元格内容加入rowlist中，在这之前先去掉字符串前后的空白符
+        // v => 单元格的值， 将单元格内容加入rowlist中
         if (name.equals("v")) {
             String value = lastContents.trim();
             value = value.equals("") ? null : value;
-            rowValueMap.put(curCol, value);
+            rowValueList.add(value);
 
             // 修改当前标签名为v
             preEle = 'v';
 
             // c标签重复次数重置为0
             curCol++;
-
-
-            //如果标签名称为 row ，这说明已到行尾，调用 optRows() 方法
         } else if (name.equals("row")) {
+            // 行尾
             try {
-                if (!rowValueMap.isEmpty()) {
-                    List<String> rowValues = new ArrayList<>();
-                    rowValueMap.forEach((k, v) -> rowValues.add(v));
-
-                    // 将当前list赋值给一个临时队列，检测是否为空队列
-                    List<String> tempRowValues = new ArrayList<>(rowValues);
+                if (!rowValueList.isEmpty()) {
+                    // 将当前list赋值给一个临时队列，检测是否全为null元素
+                    List<String> tempRowValues = new ArrayList<>(rowValueList);
                     tempRowValues.removeAll(Collections.singleton(null));
 
                     // 判断是否为空行，若部位空则添加进list内
                     if (tempRowValues.size() > 0) {
-                        rowList.add(rowValues);
+                        rowList.add(rowValueList);
                     }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            // 清空map，存储下一行的内容
-            rowValueMap.clear();
+
+            // 初始化list，存储下一行的内容
+            rowValueList = new ArrayList<>();
 
             // 修改当前标签名为r
             preEle = 'r';
@@ -274,6 +268,7 @@ public class ExcelReader extends DefaultHandler {
 
     /**
      * 获取每一行内容
+     *
      * @return
      */
     public List<List<String>> getRowList() {
@@ -282,6 +277,7 @@ public class ExcelReader extends DefaultHandler {
 
     /**
      * 获取每一个sheet的内容
+     *
      * @return
      */
     public List<List<List<String>>> getSheetList() {
