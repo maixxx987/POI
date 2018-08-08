@@ -25,11 +25,10 @@ Apache POI提供如下解析方式：
 如上图所示，我们可以从中得到以下信息：
 
 1. "row"元素代表一行
-2. “c”元素代表一个单元格
-
-   - “c”元素的“r”属性的值代表当前的坐标，如“A3”代表第3行A列
-   - “c”元素的“t”属性的值代表当前单元格类型，如"s"代表单元格类型为string
-3. “v”元素代表单元格中的值
+2. "c"元素代表一个单元格
+   - "c"元素的"r"属性的值代表当前的坐标，如"A3"代表第3行A列
+   - "c"元素的"t"属性的值代表当前单元格类型，如"s"代表单元格类型为string
+3. "v"元素代表单元格中的值
 
 
 
@@ -61,6 +60,6 @@ Apache POI提供如下解析方式：
 
 <a href="http://poi.apache.org/apidocs/index.html">Apache POI API</a>
 
-<a href=" http://poi.apache.org/components/spreadsheet/how-to.html#xssf_sax_api">Apache POI官网示例</a>
+<a href="http://poi.apache.org/components/spreadsheet/how-to.html">Apache POI官网示例</a>
 
    
