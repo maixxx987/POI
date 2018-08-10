@@ -49,10 +49,8 @@ public class ExcelReader extends DefaultHandler {
     private boolean nextIsString;
 
     /**
-     * 上一个标签名
+     * 上一个标签是否为C
      */
-    private char preEle = '0';
-
     private boolean preEleIsC = false;
 
     /**
@@ -65,6 +63,9 @@ public class ExcelReader extends DefaultHandler {
      */
     private String nextDataType;
 
+    /**
+     * 格式解析
+     */
     private final DataFormatter formatter = new DataFormatter();
 
     /**
@@ -74,7 +75,6 @@ public class ExcelReader extends DefaultHandler {
     private String formatString = null;
 
     private StylesTable stylesTable;
-    private ReadOnlySharedStringsTable sharedStringsTable;
     /**
      * 上一个列号
      */
@@ -93,7 +93,7 @@ public class ExcelReader extends DefaultHandler {
     /**
      * 在解析多个sheet时使用，将每个sheet的内容存进List
      */
-    private List<List<List<String>>> SheetList = new ArrayList<>();
+    private List<List<List<String>>> sheetList = new ArrayList<>();
 
     public void processOne(InputStream inputStream, int sheetId) throws Exception {
         OPCPackage opcPackage = OPCPackage.open(inputStream);
@@ -158,8 +158,8 @@ public class ExcelReader extends DefaultHandler {
             InputSource sheetSource = new InputSource(sheet);
             parser.parse(sheetSource);
             sheet.close();
-            // 添加进SheetList内，并清空rowList
-            SheetList.add(rowList);
+            // 添加进sheetList内，并清空rowList
+            sheetList.add(rowList);
             rowList = new ArrayList<>();
         }
     }
@@ -316,10 +316,10 @@ public class ExcelReader extends DefaultHandler {
             value = value.equals("") ? null : value;
             rowValueList.add(curCol, value);
 
-            // 修改当前标签名为v
+            // 当前标签不再为C
             preEleIsC = false;
 
-            // c标签重复次数重置为0
+            // 列号 + 1
             curCol++;
 
             // 重置单元格格式
@@ -344,13 +344,13 @@ public class ExcelReader extends DefaultHandler {
             // 初始化list，存储下一行的内容
             rowValueList = new ArrayList<>();
 
-            // 修改当前标签名为r
+            // 当前标签不在为c
             preEleIsC = false;
 
             // preCellColNum重置为0
             preCellColNum = 0;
 
-            // c标签重复次数重置为0
+            // 列号重置为0
             curCol = 0;
 
             // 重置单元格格式
@@ -402,6 +402,6 @@ public class ExcelReader extends DefaultHandler {
      * @return 表集合F
      */
     public List<List<List<String>>> getSheetList() {
-        return SheetList;
+        return sheetList;
     }
 }
