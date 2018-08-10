@@ -149,6 +149,7 @@ public class ExcelReader extends DefaultHandler {
      */
     private void processAll(OPCPackage opcPackage) throws Exception {
         XSSFReader r = new XSSFReader(opcPackage);
+        this.stylesTable = r.getStylesTable();
         SharedStringsTable sst = r.getSharedStringsTable();
         XMLReader parser = fetchSheetParser(sst);
         Iterator<InputStream> sheets = r.getSheetsData();
@@ -214,8 +215,8 @@ public class ExcelReader extends DefaultHandler {
                 // 判断单元格类型
                 switch (cellType) {
                     case SSTINDEX:
-                    nextDataType = SSTINDEX;
-                    break;
+                        nextDataType = SSTINDEX;
+                        break;
                     case "b":
                         nextDataType = BOOL;
                         break;
