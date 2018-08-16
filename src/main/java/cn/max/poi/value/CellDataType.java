@@ -1,4 +1,4 @@
-package cn.max.poi.staticResource;
+package cn.max.poi.value;
 
 /**
  * 单元格类型

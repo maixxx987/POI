@@ -3,7 +3,6 @@ package cn.max.poi;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
 import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.model.SharedStringsTable;
 import org.apache.poi.xssf.model.StylesTable;
@@ -20,9 +19,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.util.*;
 
-import cn.max.poi.staticResource.CellDataType;
-
-import static cn.max.poi.staticResource.CellDataType.*;
+import static cn.max.poi.value.CellDataType.*;
 
 
 /**
@@ -42,11 +39,6 @@ public class ExcelReader extends DefaultHandler {
      * 上一次的内容
      */
     private String lastContents;
-
-    /**
-     * 判断单元格类型是否是字符串
-     */
-    private boolean nextIsString;
 
     /**
      * 上一个标签是否为C
