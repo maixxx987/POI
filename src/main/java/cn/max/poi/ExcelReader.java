@@ -1,8 +1,12 @@
 package cn.max.poi;
 
+import jdk.internal.org.objectweb.asm.Opcodes;
+import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.model.SharedStringsTable;
 import org.apache.poi.xssf.model.StylesTable;
@@ -16,6 +20,7 @@ import org.xml.sax.helpers.DefaultHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 
@@ -117,6 +122,19 @@ public class ExcelReader extends DefaultHandler {
         processAll(opcPackage);
     }
 
+    public void processByName(File file) throws Exception {
+        OPCPackage opcPackage = OPCPackage.open(file);
+        processBySheetName(opcPackage);
+    }
+
+    private XMLReader getXMLReader(OPCPackage opcPackage) throws Exception {
+        XSSFReader r = new XSSFReader(opcPackage);
+        //   this.sharedStringsTable = new ReadOnlySharedStringsTable(opcPackage);
+        this.stylesTable = r.getStylesTable();
+        SharedStringsTable sst = r.getSharedStringsTable();
+        return fetchSheetParser(sst);
+    }
+
     /**
      * 只遍历一个电子表格，其中sheetId为要遍历的sheet索引，从1开始，1-3
      *
@@ -156,6 +174,25 @@ public class ExcelReader extends DefaultHandler {
         }
     }
 
+    private void processBySheetName(OPCPackage opcPackage) throws Exception {
+        XSSFReader r = new XSSFReader(opcPackage);
+        this.stylesTable = r.getStylesTable();
+        SharedStringsTable sst = r.getSharedStringsTable();
+        XMLReader parser = fetchSheetParser(sst);
+        XSSFReader.SheetIterator sheetiterator = (XSSFReader.SheetIterator) r.getSheetsData();
+        while (sheetiterator.hasNext()) {
+            InputStream sheet = sheetiterator.next();
+            System.out.println(sheetiterator.getSheetName());
+            InputSource sheetSource = new InputSource(sheet);
+            parser.parse(sheetSource);
+            sheet.close();
+            // 添加进sheetList内，并清空rowList
+            sheetList.add(rowList);
+            rowList = new ArrayList<>();
+        }
+    }
+
+
     private XMLReader fetchSheetParser(SharedStringsTable sst) throws SAXException {
         XMLReader parser = XMLReaderFactory
                 .createXMLReader("org.apache.xerces.parsers.SAXParser");
@@ -182,22 +219,17 @@ public class ExcelReader extends DefaultHandler {
             if (preCellColNum != 0 && cellColNum - preCellColNum > 1) {
                 // 计算两个c标签之间的差值
                 int diff = cellColNum - preCellColNum;
-
-                // 循环赋值null
                 for (int i = 0; i < (diff - 1); i++) {
                     rowValueList.add(curCol, null);
                 }
                 curCol += (diff - 1);
             }
-
-            // 将上一列的数值赋值当前列的数值
             preCellColNum = cellColNum;
 
             // 判断上一个标签是否还是c，如果是c则表示漏了一行(使用清除内容会导致没有v标签)
             if (preEleIsC) {
                 rowValueList.add(curCol, null);
                 curCol++;
-                // 重置单元格格式
                 cleanCellFormate();
             }
             preEleIsC = true;
@@ -234,7 +266,6 @@ public class ExcelReader extends DefaultHandler {
                 }
                 nextDataType = NEED_FORMAT;
 
-                // 日期格式
                 if (formatString == "m/d/yy" || formatString == "yyyy-mm-dd" || formatString.contains("[$-F800]")) {
                     nextDataType = DATE;
                     formatString = "yyyy-MM-dd";
@@ -271,22 +302,16 @@ public class ExcelReader extends DefaultHandler {
                 value = lastContents;
             } else {
                 switch (nextDataType) {
-                    // 布尔
                     case BOOL:
                         value = lastContents.charAt(0) == '0' ? "FALSE" : "TRUE";
                         break;
-                    // 内置单元格
                     case INLINESTR:
                         value = new XSSFRichTextString(lastContents).toString();
                         break;
-
-                    // 公式或者是string
                     case FORMULA:
                     case SSTINDEX:
                         value = lastContents;
                         break;
-
-                    // 需要解析的类型
                     case NEED_FORMAT:
                         if (formatString != null) {
                             value = formatter.formatRawCellContents(Double.parseDouble(lastContents), formatIndex, formatString).trim();
@@ -294,7 +319,6 @@ public class ExcelReader extends DefaultHandler {
                             value = lastContents;
                         }
                         break;
-                    // 对日期或者是时间做解析
                     case DATE:
                     case TIME:
                         value = formatter.formatRawCellContents(Double.parseDouble(lastContents), formatIndex, formatString);
@@ -304,27 +328,16 @@ public class ExcelReader extends DefaultHandler {
                         break;
                 }
             }
-            // 添加
             value = value.equals("") ? null : value;
             rowValueList.add(curCol, value);
-
-            // 当前标签不再为C
             preEleIsC = false;
-
-            // 列号 + 1
             curCol++;
-
-            // 重置单元格格式
             cleanCellFormate();
         } else if (name.equals("row")) {
-            // 行尾
             try {
                 if (!rowValueList.isEmpty()) {
-                    // 将当前list赋值给一个临时队列，检测是否全为null元素
                     List<String> tempRowValues = new ArrayList<>(rowValueList);
                     tempRowValues.removeAll(Collections.singleton(null));
-
-                    // 判断是否为空行，若部位空则添加进list内
                     if (tempRowValues.size() > 0) {
                         rowList.add(rowValueList);
                     }
@@ -332,20 +345,10 @@ public class ExcelReader extends DefaultHandler {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
-            // 初始化list，存储下一行的内容
             rowValueList = new ArrayList<>();
-
-            // 当前标签不在为c
             preEleIsC = false;
-
-            // preCellColNum重置为0
             preCellColNum = 0;
-
-            // 列号重置为0
             curCol = 0;
-
-            // 重置单元格格式
             cleanCellFormate();
         }
     }
@@ -391,7 +394,7 @@ public class ExcelReader extends DefaultHandler {
     /**
      * 获取每一个sheet的内容
      *
-     * @return 表集合F
+     * @return 表集合
      */
     public List<List<List<String>>> getSheetList() {
         return sheetList;
