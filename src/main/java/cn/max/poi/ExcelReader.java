@@ -1,13 +1,10 @@
 package cn.max.poi;
 
-import jdk.internal.org.objectweb.asm.Opcodes;
-import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
-import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
 import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
+import org.apache.poi.xssf.eventusermodel.XSSFReader.SheetIterator;
 import org.apache.poi.xssf.model.SharedStringsTable;
 import org.apache.poi.xssf.model.StylesTable;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
@@ -19,10 +16,12 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 import static cn.max.poi.value.CellDataType.*;
 
@@ -97,34 +96,16 @@ public class ExcelReader extends DefaultHandler {
         processOneSheet(opcPackage, sheetId);
     }
 
-    public void processOne(String filePath, int sheetId) throws Exception {
-        OPCPackage opcPackage = OPCPackage.open(filePath);
-        processOneSheet(opcPackage, sheetId);
-    }
-
-    public void processOne(File file, int sheetId) throws Exception {
-        OPCPackage opcPackage = OPCPackage.open(file);
-        processOneSheet(opcPackage, sheetId);
-    }
 
     public void processAll(InputStream inputStream) throws Exception {
         OPCPackage opcPackage = OPCPackage.open(inputStream);
         processAll(opcPackage);
     }
 
-    public void processAll(String filePath) throws Exception {
-        OPCPackage opcPackage = OPCPackage.open(filePath);
-        processAll(opcPackage);
-    }
 
-    public void processAll(File file) throws Exception {
-        OPCPackage opcPackage = OPCPackage.open(file);
-        processAll(opcPackage);
-    }
-
-    public void processByName(File file) throws Exception {
-        OPCPackage opcPackage = OPCPackage.open(file);
-        processBySheetName(opcPackage);
+    public void processByName(InputStream inputStream, String sheetName) throws Exception {
+        OPCPackage opcPackage = OPCPackage.open(inputStream);
+        processBySheetName(opcPackage, sheetName);
     }
 
     private XMLReader getXMLReader(OPCPackage opcPackage) throws Exception {
@@ -133,6 +114,12 @@ public class ExcelReader extends DefaultHandler {
         this.stylesTable = r.getStylesTable();
         SharedStringsTable sst = r.getSharedStringsTable();
         return fetchSheetParser(sst);
+    }
+
+    private void parseSheet(XMLReader parser, InputStream sheet) throws IOException, SAXException {
+        InputSource sheetSource = new InputSource(sheet);
+        parser.parse(sheetSource);
+        sheet.close();
     }
 
     /**
@@ -162,9 +149,10 @@ public class ExcelReader extends DefaultHandler {
         this.stylesTable = r.getStylesTable();
         SharedStringsTable sst = r.getSharedStringsTable();
         XMLReader parser = fetchSheetParser(sst);
-        Iterator<InputStream> sheets = r.getSheetsData();
-        while (sheets.hasNext()) {
-            InputStream sheet = sheets.next();
+        SheetIterator sheetiterator = (SheetIterator) r.getSheetsData();
+        while (sheetiterator.hasNext()) {
+            InputStream sheet = sheetiterator.next();
+            System.out.println("当前表格名：" + sheetiterator.getSheetName());
             InputSource sheetSource = new InputSource(sheet);
             parser.parse(sheetSource);
             sheet.close();
@@ -174,21 +162,33 @@ public class ExcelReader extends DefaultHandler {
         }
     }
 
-    private void processBySheetName(OPCPackage opcPackage) throws Exception {
+    /**
+     * 遍历指定名称的单元格
+     *
+     * @param opcPackage
+     * @param sheetName
+     * @throws Exception
+     */
+    private void processBySheetName(OPCPackage opcPackage, String sheetName) throws Exception {
+        boolean notFindSheet = true;
         XSSFReader r = new XSSFReader(opcPackage);
         this.stylesTable = r.getStylesTable();
         SharedStringsTable sst = r.getSharedStringsTable();
         XMLReader parser = fetchSheetParser(sst);
-        XSSFReader.SheetIterator sheetiterator = (XSSFReader.SheetIterator) r.getSheetsData();
+        SheetIterator sheetiterator = (SheetIterator) r.getSheetsData();
         while (sheetiterator.hasNext()) {
             InputStream sheet = sheetiterator.next();
-            System.out.println(sheetiterator.getSheetName());
-            InputSource sheetSource = new InputSource(sheet);
-            parser.parse(sheetSource);
-            sheet.close();
-            // 添加进sheetList内，并清空rowList
-            sheetList.add(rowList);
-            rowList = new ArrayList<>();
+            if (sheetiterator.getSheetName().equals(sheetName)) {
+                InputSource sheetSource = new InputSource(sheet);
+                parser.parse(sheetSource);
+                sheet.close();
+                notFindSheet = false;
+                break;
+            }
+        }
+
+        if (notFindSheet) {
+            System.out.println("未找表格:" + sheetName);
         }
     }
 
