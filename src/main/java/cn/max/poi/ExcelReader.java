@@ -3,9 +3,9 @@ package cn.max.poi;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.eventusermodel.XSSFReader.SheetIterator;
-import org.apache.poi.xssf.model.SharedStringsTable;
 import org.apache.poi.xssf.model.StylesTable;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFRichTextString;
@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 import static cn.max.poi.value.CellDataType.*;
@@ -37,7 +36,7 @@ public class ExcelReader extends DefaultHandler {
     /**
      * 共享字符串表
      */
-    private SharedStringsTable sst;
+    private ReadOnlySharedStringsTable sst;
 
     /**
      * 上一次的内容
@@ -79,7 +78,7 @@ public class ExcelReader extends DefaultHandler {
     /**
      * 单元格内容
      */
-    private List<String> rowValueList = new ArrayList<>();
+    private List<String> cellValueList = new ArrayList<>();
 
     /**
      * 存储每一行所有单元格的list
@@ -108,19 +107,18 @@ public class ExcelReader extends DefaultHandler {
         processBySheetName(opcPackage, sheetName);
     }
 
-    private XMLReader getXMLReader(OPCPackage opcPackage) throws Exception {
-        XSSFReader r = new XSSFReader(opcPackage);
-        //   this.sharedStringsTable = new ReadOnlySharedStringsTable(opcPackage);
-        this.stylesTable = r.getStylesTable();
-        SharedStringsTable sst = r.getSharedStringsTable();
-        return fetchSheetParser(sst);
-    }
-
-    private void parseSheet(XMLReader parser, InputStream sheet) throws IOException, SAXException {
-        InputSource sheetSource = new InputSource(sheet);
-        parser.parse(sheetSource);
-        sheet.close();
-    }
+//    private XMLReader getXMLReader(OPCPackage opcPackage) throws Exception {
+//        XSSFReader r = new XSSFReader(opcPackage);
+//        this.stylesTable = r.getStylesTable();
+//        ReadOnlySharedStringsTable sst = new ReadOnlySharedStringsTable(opcPackage);
+//        return fetchSheetParser(sst);
+//    }
+//
+//    private void parseSheet(XMLReader parser, InputStream sheet) throws IOException, SAXException {
+//        InputSource sheetSource = new InputSource(sheet);
+//        parser.parse(sheetSource);
+//        sheet.close();
+//    }
 
     /**
      * 只遍历一个电子表格，其中sheetId为要遍历的sheet索引，从1开始，1-3
@@ -129,9 +127,8 @@ public class ExcelReader extends DefaultHandler {
      */
     private void processOneSheet(OPCPackage opcPackage, int sheetId) throws Exception {
         XSSFReader r = new XSSFReader(opcPackage);
-        //   this.sharedStringsTable = new ReadOnlySharedStringsTable(opcPackage);
         this.stylesTable = r.getStylesTable();
-        SharedStringsTable sst = r.getSharedStringsTable();
+        this.sst = new ReadOnlySharedStringsTable(opcPackage);
         XMLReader parser = fetchSheetParser(sst);
 
         // 根据 rId# 或 rSheet# 查找sheet
@@ -147,7 +144,7 @@ public class ExcelReader extends DefaultHandler {
     private void processAll(OPCPackage opcPackage) throws Exception {
         XSSFReader r = new XSSFReader(opcPackage);
         this.stylesTable = r.getStylesTable();
-        SharedStringsTable sst = r.getSharedStringsTable();
+        this.sst = new ReadOnlySharedStringsTable(opcPackage);
         XMLReader parser = fetchSheetParser(sst);
         SheetIterator sheetiterator = (SheetIterator) r.getSheetsData();
         while (sheetiterator.hasNext()) {
@@ -173,7 +170,7 @@ public class ExcelReader extends DefaultHandler {
         boolean notFindSheet = true;
         XSSFReader r = new XSSFReader(opcPackage);
         this.stylesTable = r.getStylesTable();
-        SharedStringsTable sst = r.getSharedStringsTable();
+        this.sst = new ReadOnlySharedStringsTable(opcPackage);
         XMLReader parser = fetchSheetParser(sst);
         SheetIterator sheetiterator = (SheetIterator) r.getSheetsData();
         while (sheetiterator.hasNext()) {
@@ -193,7 +190,7 @@ public class ExcelReader extends DefaultHandler {
     }
 
 
-    private XMLReader fetchSheetParser(SharedStringsTable sst) throws SAXException {
+    private XMLReader fetchSheetParser(ReadOnlySharedStringsTable sst) throws SAXException {
         XMLReader parser = XMLReaderFactory
                 .createXMLReader("org.apache.xerces.parsers.SAXParser");
         this.sst = sst;
@@ -220,7 +217,7 @@ public class ExcelReader extends DefaultHandler {
                 // 计算两个c标签之间的差值
                 int diff = cellColNum - preCellColNum;
                 for (int i = 0; i < (diff - 1); i++) {
-                    rowValueList.add(curCol, null);
+                    cellValueList.add(curCol, null);
                 }
                 curCol += (diff - 1);
             }
@@ -228,7 +225,7 @@ public class ExcelReader extends DefaultHandler {
 
             // 判断上一个标签是否还是c，如果是c则表示漏了一行(使用清除内容会导致没有v标签)
             if (preEleIsC) {
-                rowValueList.add(curCol, null);
+                cellValueList.add(curCol, null);
                 curCol++;
                 cleanCellFormate();
             }
@@ -329,23 +326,23 @@ public class ExcelReader extends DefaultHandler {
                 }
             }
             value = value.equals("") ? null : value;
-            rowValueList.add(curCol, value);
+            cellValueList.add(curCol, value);
             preEleIsC = false;
             curCol++;
             cleanCellFormate();
         } else if (name.equals("row")) {
             try {
-                if (!rowValueList.isEmpty()) {
-                    List<String> tempRowValues = new ArrayList<>(rowValueList);
+                if (!cellValueList.isEmpty()) {
+                    List<String> tempRowValues = new ArrayList<>(cellValueList);
                     tempRowValues.removeAll(Collections.singleton(null));
                     if (tempRowValues.size() > 0) {
-                        rowList.add(rowValueList);
+                        rowList.add(cellValueList);
                     }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            rowValueList = new ArrayList<>();
+            cellValueList = new ArrayList<>();
             preEleIsC = false;
             preCellColNum = 0;
             curCol = 0;
