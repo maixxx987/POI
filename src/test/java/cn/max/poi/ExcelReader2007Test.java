@@ -10,17 +10,19 @@ import java.io.InputStream;
 import java.util.List;
 
 /**
+ * 事件驱动(SAX)解析 Excel2007
+ *
  * @author MaxStar
  * @date 2018/8/7
  */
-public class ExcelReaderTest {
+public class ExcelReader2007Test {
 
-    private ExcelReader reader;
+    private ExcelReader2007 reader;
     private InputStream inputStream;
 
     @Before
     public void setUp() throws FileNotFoundException {
-        reader = new ExcelReader();
+        reader = new ExcelReader2007();
         inputStream = new FileInputStream(new File(this.getClass().getResource("/data.xlsx").getFile()));
     }
 
@@ -31,10 +33,10 @@ public class ExcelReaderTest {
      */
     @Test
     public void testResolveOne() throws Exception {
-        long star = System.currentTimeMillis();
-        reader.processOne(inputStream, 1);
+        long start = System.currentTimeMillis();
+        reader.processOne(inputStream, 2);
         List<List<String>> rowList = reader.getRowList();
-        long end = System.currentTimeMillis() - star;
+        long end = System.currentTimeMillis() - start;
 
         // 遍历单元格内容
         rowList.forEach(rowValueList -> {
@@ -54,10 +56,10 @@ public class ExcelReaderTest {
      */
     @Test
     public void testResolveAll() throws Exception {
-        long star = System.currentTimeMillis();
+        long start = System.currentTimeMillis();
         reader.processAll(inputStream);
         List<List<List<String>>> sheetList = reader.getSheetList();
-        long end = System.currentTimeMillis() - star;
+        long end = System.currentTimeMillis() - start;
 
         // 遍历单元格内容
         for (int i = 0; i < sheetList.size(); i++) {
@@ -81,10 +83,10 @@ public class ExcelReaderTest {
      */
     @Test
     public void testResolveName() throws Exception {
-        long star = System.currentTimeMillis();
-        reader.processByName(inputStream,"Sheet1");
+        long start = System.currentTimeMillis();
+        reader.processByName(inputStream, "Sheet1");
         List<List<String>> rowList = reader.getRowList();
-        long end = System.currentTimeMillis() - star;
+        long end = System.currentTimeMillis() - start;
 
         // 遍历单元格内容
         rowList.forEach(rowValueList -> {

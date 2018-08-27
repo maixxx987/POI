@@ -16,7 +16,6 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,7 +30,7 @@ import static cn.max.poi.value.CellDataType.*;
  * @author MaxStar
  * @date 2018/8/3
  */
-public class ExcelReader extends DefaultHandler {
+public class ExcelReader2007 extends DefaultHandler {
 
     /**
      * 共享字符串表
