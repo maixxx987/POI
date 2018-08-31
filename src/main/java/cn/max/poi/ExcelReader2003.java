@@ -9,8 +9,6 @@ import org.apache.poi.hssf.record.*;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -54,7 +52,6 @@ public class ExcelReader2003 implements HSSFListener {
     /**
      * 处理公式字符串
      */
-    private int nextColumn;
     private boolean outputNextStringRecord;
 
     /**
@@ -137,7 +134,6 @@ public class ExcelReader2003 implements HSSFListener {
                         if (outputFormulaValues) {
                             if (Double.isNaN(frec.getValue())) {
                                 outputNextStringRecord = true;
-                                nextColumn = frec.getColumn();
                             } else {
                                 thisStr = formatListener.formatNumberDateCell(frec);
                             }
