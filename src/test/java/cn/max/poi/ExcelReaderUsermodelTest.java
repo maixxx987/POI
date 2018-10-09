@@ -20,7 +20,8 @@ public class ExcelReaderUsermodelTest {
     @Before
     public void setUp() throws FileNotFoundException {
         reader = new ExcelReaderUsermodel();
-        inputStream = new FileInputStream(new File(this.getClass().getResource("/data.xls").getFile()));
+//        inputStream = new FileInputStream(new File(this.getClass().getResource("/data.xls").getFile()));
+        inputStream = new FileInputStream(new File(this.getClass().getResource("/data.xlsx").getFile()));
     }
 
     /**
