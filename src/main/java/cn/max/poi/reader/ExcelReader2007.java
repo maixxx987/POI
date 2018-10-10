@@ -1,4 +1,4 @@
-package cn.max.poi;
+package cn.max.poi.reader;
 
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.BuiltinFormats;
@@ -20,8 +20,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import static cn.max.poi.value.CellDataType.*;
 
 
 /**
@@ -53,19 +51,23 @@ public class ExcelReader2007 extends DefaultHandler {
     private int curCol = 0;
 
     /**
-     * 单元格数据类型，默认为字符串类型
+     * 单元格数据类型
      */
-    private String nextDataType;
+    private Integer nextDataType;
+    private static final int SSTINDEX = 1;
+    private static final int BOOL = 2;
+    private static final int INLINESTR = 3;
+    private static final int NEED_FORMAT = 4;
 
     /**
      * 格式解析
      */
-    private final DataFormatter formatter = new DataFormatter();
+    private static final DataFormatter FORMATTER = new DataFormatter();
 
     /**
      * 单元格样式，用于格式转换
      */
-    private short formatIndex = -1;
+    private short format = -1;
     private String formatString = null;
 
     private StylesTable stylesTable;
@@ -89,11 +91,15 @@ public class ExcelReader2007 extends DefaultHandler {
      */
     private List<List<List<String>>> sheetList = new ArrayList<>();
 
-    public void processOne(InputStream inputStream, int sheetId) throws Exception {
+    public void process(InputStream inputStream, int sheetId) throws Exception {
         OPCPackage opcPackage = OPCPackage.open(inputStream);
-        processOneSheet(opcPackage, sheetId);
+        process(opcPackage, sheetId);
     }
 
+    public void process(InputStream inputStream, String sheetName) throws Exception {
+        OPCPackage opcPackage = OPCPackage.open(inputStream);
+        process(opcPackage, sheetName);
+    }
 
     public void processAll(InputStream inputStream) throws Exception {
         OPCPackage opcPackage = OPCPackage.open(inputStream);
@@ -101,30 +107,12 @@ public class ExcelReader2007 extends DefaultHandler {
     }
 
 
-    public void processByName(InputStream inputStream, String sheetName) throws Exception {
-        OPCPackage opcPackage = OPCPackage.open(inputStream);
-        processBySheetName(opcPackage, sheetName);
-    }
-
-//    private XMLReader getXMLReader(OPCPackage opcPackage) throws Exception {
-//        XSSFReader r = new XSSFReader(opcPackage);
-//        this.stylesTable = r.getStylesTable();
-//        ReadOnlySharedStringsTable sst = new ReadOnlySharedStringsTable(opcPackage);
-//        return fetchSheetParser(sst);
-//    }
-//
-//    private void parseSheet(XMLReader parser, InputStream sheet) throws IOException, SAXException {
-//        InputSource sheetSource = new InputSource(sheet);
-//        parser.parse(sheetSource);
-//        sheet.close();
-//    }
-
     /**
      * 只遍历一个电子表格，其中sheetId为要遍历的sheet索引，从1开始，1-3
      *
      * @throws Exception
      */
-    private void processOneSheet(OPCPackage opcPackage, int sheetId) throws Exception {
+    private void process(OPCPackage opcPackage, int sheetId) throws Exception {
         XSSFReader r = new XSSFReader(opcPackage);
         this.stylesTable = r.getStylesTable();
         this.sst = new ReadOnlySharedStringsTable(opcPackage);
@@ -135,6 +123,37 @@ public class ExcelReader2007 extends DefaultHandler {
         InputSource sheetSource = new InputSource(sheet);
         parser.parse(sheetSource);
         sheet.close();
+    }
+
+
+    /**
+     * 遍历指定名称的单元格
+     *
+     * @param opcPackage
+     * @param sheetName
+     * @throws Exception
+     */
+    private void process(OPCPackage opcPackage, String sheetName) throws Exception {
+        boolean notFindSheet = true;
+        XSSFReader r = new XSSFReader(opcPackage);
+        this.stylesTable = r.getStylesTable();
+        this.sst = new ReadOnlySharedStringsTable(opcPackage);
+        XMLReader parser = fetchSheetParser(sst);
+        SheetIterator sheetiterator = (SheetIterator) r.getSheetsData();
+        while (sheetiterator.hasNext()) {
+            InputStream sheet = sheetiterator.next();
+            if (sheetiterator.getSheetName().equals(sheetName)) {
+                InputSource sheetSource = new InputSource(sheet);
+                parser.parse(sheetSource);
+                sheet.close();
+                notFindSheet = false;
+                break;
+            }
+        }
+
+        if (notFindSheet) {
+            System.out.println("未找表格:" + sheetName);
+        }
     }
 
     /**
@@ -158,40 +177,8 @@ public class ExcelReader2007 extends DefaultHandler {
         }
     }
 
-    /**
-     * 遍历指定名称的单元格
-     *
-     * @param opcPackage
-     * @param sheetName
-     * @throws Exception
-     */
-    private void processBySheetName(OPCPackage opcPackage, String sheetName) throws Exception {
-        boolean notFindSheet = true;
-        XSSFReader r = new XSSFReader(opcPackage);
-        this.stylesTable = r.getStylesTable();
-        this.sst = new ReadOnlySharedStringsTable(opcPackage);
-        XMLReader parser = fetchSheetParser(sst);
-        SheetIterator sheetiterator = (SheetIterator) r.getSheetsData();
-        while (sheetiterator.hasNext()) {
-            InputStream sheet = sheetiterator.next();
-            if (sheetiterator.getSheetName().equals(sheetName)) {
-                InputSource sheetSource = new InputSource(sheet);
-                parser.parse(sheetSource);
-                sheet.close();
-                notFindSheet = false;
-                break;
-            }
-        }
-
-        if (notFindSheet) {
-            System.out.println("未找表格:" + sheetName);
-        }
-    }
-
-
     private XMLReader fetchSheetParser(ReadOnlySharedStringsTable sst) throws SAXException {
-        XMLReader parser = XMLReaderFactory
-                .createXMLReader("org.apache.xerces.parsers.SAXParser");
+        XMLReader parser = XMLReaderFactory.createXMLReader("org.apache.xerces.parsers.SAXParser");
         this.sst = sst;
         parser.setContentHandler(this);
         return parser;
@@ -234,7 +221,7 @@ public class ExcelReader2007 extends DefaultHandler {
             if (cellType != null) {
                 // 判断单元格类型
                 switch (cellType) {
-                    case SSTINDEX:
+                    case "s":
                         nextDataType = SSTINDEX;
                         break;
                     case "b":
@@ -243,35 +230,35 @@ public class ExcelReader2007 extends DefaultHandler {
                     case "inlineStr":
                         nextDataType = INLINESTR;
                         break;
-                    case "str":
-                        nextDataType = FORMULA;
-                        break;
                     default:
-                        nextDataType = NEED_FORMAT;
+                        nextDataType = null;
                         break;
                 }
             }
-            if (nextDataType == null && cellStyleStr != null) {
-                int styleIndex = Integer.parseInt(cellStyleStr);
+            if (nextDataType == null) {
+                int styleIndex;
+                try {
+                    styleIndex = Integer.parseInt(cellStyleStr);
+                } catch (NumberFormatException e) {
+                    styleIndex = 0;
+                }
+
                 // 获取单元格样式
                 XSSFCellStyle style = stylesTable.getStyleAt(styleIndex);
-                formatIndex = style.getDataFormat();
+                format = style.getDataFormat();
                 formatString = style.getDataFormatString();
                 if (formatString == null) {
-                    formatString = BuiltinFormats.getBuiltinFormat(formatIndex);
+                    formatString = BuiltinFormats.getBuiltinFormat(format);
                 }
-                nextDataType = NEED_FORMAT;
 
-                if (formatString == "m/d/yy" || formatString == "yyyy-mm-dd" || formatString.contains("[$-F800]")) {
-                    nextDataType = DATE;
+                // 判断是否是日期时间
+                if (formatString.equals("m/d/yy") || formatString.equals("yyyy-mm-dd") || formatString.contains("[$-F800]")) {
                     formatString = "yyyy-MM-dd";
                     //      formatString = "yyyy-MM-dd hh:mm:ss.SSS";
+                } else if (formatString.equals("h:mm") || formatString.contains("[$-F400]")) {
+                    formatString = "HH:mm:ss";
                 }
-
-                if (formatString == "h:mm" || formatString.contains("[$-F400]")) {
-                    nextDataType = TIME;
-                    formatString = "hh:mm:ss.SSS";
-                }
+                nextDataType = NEED_FORMAT;
             }
         }
 
@@ -284,44 +271,25 @@ public class ExcelReader2007 extends DefaultHandler {
      */
     @Override
     public void endElement(String uri, String localName, String name) {
-        // 根据SST的索引值的到单元格的真正要存储的字符串
-        // 这时characters()方法可能会被调用多次
-        if (nextDataType != null && nextDataType.equals(SSTINDEX)) {
-            int idx = Integer.parseInt(lastContents);
-            lastContents = new XSSFRichTextString(sst.getEntryAt(idx)).toString().trim();
-        }
-
         // v => 单元格的值， 将单元格内容加入rowlist中
         String value;
         if (name.equals("v")) {
             if (nextDataType == null) {
                 value = lastContents;
             } else {
-                switch (nextDataType) {
-                    case BOOL:
-                        value = lastContents.charAt(0) == '0' ? "FALSE" : "TRUE";
-                        break;
-                    case INLINESTR:
-                        value = new XSSFRichTextString(lastContents).toString();
-                        break;
-                    case FORMULA:
-                    case SSTINDEX:
-                        value = lastContents;
-                        break;
-                    case NEED_FORMAT:
-                        if (formatString != null) {
-                            value = formatter.formatRawCellContents(Double.parseDouble(lastContents), formatIndex, formatString).trim();
-                        } else {
-                            value = lastContents;
-                        }
-                        break;
-                    case DATE:
-                    case TIME:
-                        value = formatter.formatRawCellContents(Double.parseDouble(lastContents), formatIndex, formatString);
-                        break;
-                    default:
-                        value = lastContents;
-                        break;
+                // 根据SST的索引值的到单元格的真正要存储的字符串
+                // 这时characters()方法可能会被调用多次
+                if (nextDataType == SSTINDEX) {
+                    int idx = Integer.parseInt(lastContents);
+                    value = new XSSFRichTextString(sst.getEntryAt(idx)).toString().trim();
+                } else if (nextDataType == BOOL) {
+                    value = lastContents.charAt(0) == '0' ? "FALSE" : "TRUE";
+                } else if (nextDataType == INLINESTR) {
+                    value = new XSSFRichTextString(lastContents).toString();
+                } else if (nextDataType == NEED_FORMAT && formatString != null) {
+                    value = FORMATTER.formatRawCellContents(Double.parseDouble(lastContents), format, formatString).trim();
+                } else {
+                    value = lastContents;
                 }
             }
             value = value.equals("") ? null : value;
@@ -373,7 +341,7 @@ public class ExcelReader2007 extends DefaultHandler {
      * 重置单元格格式
      */
     private void cleanCellFormate() {
-        formatIndex = -1;
+        format = -1;
         formatString = null;
         nextDataType = null;
     }

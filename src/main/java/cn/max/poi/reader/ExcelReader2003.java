@@ -1,4 +1,4 @@
-package cn.max.poi;
+package cn.max.poi.reader;
 
 import org.apache.poi.hssf.eventusermodel.EventWorkbookBuilder.SheetRecordCollectingListener;
 import org.apache.poi.hssf.eventusermodel.*;
@@ -14,7 +14,11 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.apache.commons.lang3.StringUtils.isBlank;
+
 /**
+ * 使用SAX方法解析Excel（只能解析2003版本，即尾缀为.xls）
+ *
  * @author MaxStar
  * @date 2018/8/21
  */
@@ -60,17 +64,14 @@ public class ExcelReader2003 implements HSSFListener {
     private boolean isGetSheetName = false;
 
     private List<String> cellValueList = new ArrayList<>();
-    private List<List<String>> rowValueList = new ArrayList<>();
+    private List<List<String>> rowList = new ArrayList<>();
 
     /**
      * 解析初始化
      */
     public void process(InputStream in, String sheetName) throws IOException {
         POIFSFileSystem fs = new POIFSFileSystem(in);
-        if (sheetName == null) {
-            sheetName = "Sheet1";
-        }
-        this.sheetName = sheetName;
+        this.sheetName = isBlank(sheetName) ? "Sheet1" : sheetName;
         MissingRecordAwareHSSFListener listener = new MissingRecordAwareHSSFListener(this);
         formatListener = new FormatTrackingHSSFListener(listener);
 
@@ -106,7 +107,6 @@ public class ExcelReader2003 implements HSSFListener {
                     stubWorkbook = workbookBuildingListener.getStubHSSFWorkbook();
                 }
 
-                // Works by ordering the BSRs by the location of their BOFRecords, and then knowing that we process BOFRecords in byte offset order
                 sheetIndex++;
                 if (orderedBSRs == null) {
                     orderedBSRs = BoundSheetRecord.orderByBofPosition(boundSheetRecords);
@@ -122,7 +122,6 @@ public class ExcelReader2003 implements HSSFListener {
                 switch (sid) {
                     // 空单元格
                     case BlankRecord.sid:
-                        BlankRecord brec = (BlankRecord) record;
                         cellValueList.add(null);
                         break;
 
@@ -189,14 +188,14 @@ public class ExcelReader2003 implements HSSFListener {
 
                 // 行尾
                 if (record instanceof LastCellOfRowDummyRecord) {
-                    rowValueList.add(cellValueList);
+                    rowList.add(cellValueList);
                     cellValueList = new ArrayList<>();
                 }
             }
         }
     }
 
-    public List<List<String>> getRowValueList() {
-        return rowValueList;
+    public List<List<String>> getRowList() {
+        return rowList;
     }
 }
