@@ -12,9 +12,12 @@ import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 /**
  * 使用SAX方法解析Excel（只能解析2003版本，即尾缀为.xls）
@@ -33,6 +36,12 @@ public class ExcelReader2003 implements HSSFListener {
      * 需解析的表名
      */
     private String sheetName;
+
+    /**
+     * 当前表名
+     */
+    private String curSheetName;
+    private boolean processOne;
 
     /**
      * 解析公式
@@ -65,13 +74,17 @@ public class ExcelReader2003 implements HSSFListener {
 
     private List<String> cellValueList = new ArrayList<>();
     private List<List<String>> rowList = new ArrayList<>();
+    private Map<String, List<List<String>>> sheetMap = new LinkedHashMap<>();
 
     /**
      * 解析初始化
      */
-    public void process(InputStream in, String sheetName) throws IOException {
+    public void process(InputStream in, String sheetName, boolean processOne) throws IOException {
         POIFSFileSystem fs = new POIFSFileSystem(in);
-        this.sheetName = isBlank(sheetName) ? "Sheet1" : sheetName;
+        this.processOne = processOne;
+        if (processOne) {
+            this.sheetName = isBlank(sheetName) ? "Sheet1" : sheetName;
+        }
         MissingRecordAwareHSSFListener listener = new MissingRecordAwareHSSFListener(this);
         formatListener = new FormatTrackingHSSFListener(listener);
 
@@ -90,13 +103,13 @@ public class ExcelReader2003 implements HSSFListener {
 
     /**
      * 解析
+     * BOFRecord:开始sheet
+     * SSTRecord:存储xls文本中所有单元格的值
+     * EOFRecord:结束sheet
      */
     @Override
     public void processRecord(Record record) {
-        String thisStr = null;
         short sid = record.getSid();
-
-        // 解析sheet
         if (sid == BoundSheetRecord.sid) {
             boundSheetRecords.add((BoundSheetRecord) record);
         } else if (sid == BOFRecord.sid) {
@@ -113,12 +126,23 @@ public class ExcelReader2003 implements HSSFListener {
                 }
 
                 // 判断是否与需要解析的sheet名是否相同
-                isGetSheetName = orderedBSRs[sheetIndex].getSheetname().trim().equals(sheetName);
+                curSheetName = orderedBSRs[sheetIndex].getSheetname().trim();
+                if (processOne) {
+                    isGetSheetName = curSheetName.equals(sheetName);
+                }
             }
         } else if (sid == SSTRecord.sid) {
             sstRecord = (SSTRecord) record;
+        } else if (sid == EOFRecord.sid) {
+            if (!processOne) {
+                if (isNotBlank(curSheetName) && rowList != null && !rowList.isEmpty()) {
+                    sheetMap.put(curSheetName, rowList);
+                    rowList = new ArrayList<>();
+                }
+            }
         } else {
-            if (isGetSheetName) {
+            if ((processOne && isGetSheetName) || !processOne) {
+                String thisStr = null;
                 switch (sid) {
                     // 空单元格
                     case BlankRecord.sid:
@@ -197,5 +221,9 @@ public class ExcelReader2003 implements HSSFListener {
 
     public List<List<String>> getRowList() {
         return rowList;
+    }
+
+    public Map<String, List<List<String>>> getSheetMap() {
+        return sheetMap;
     }
 }

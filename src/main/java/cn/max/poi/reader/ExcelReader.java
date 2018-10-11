@@ -6,7 +6,9 @@ import org.apache.poi.ss.usermodel.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
@@ -46,13 +48,16 @@ public class ExcelReader {
      * @throws IOException
      * @throws InvalidFormatException
      */
-    public static List<List<List<String>>> processAll(InputStream inputStream) throws IOException, InvalidFormatException {
-        List<List<List<String>>> sheetList = new ArrayList<>();
+    public static Map<String, List<List<String>>> processAll(InputStream inputStream) throws IOException, InvalidFormatException {
+        Map<String, List<List<String>>> sheetMap = new LinkedHashMap<>();
         Workbook workbook = createWorkBook(inputStream);
         for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-            sheetList.add(getRowValueList(workbook.getSheetAt(i)));
+            Sheet sheet = workbook.getSheetAt(i);
+            String sheetName = sheet.getSheetName();
+            List<List<String>> rowValue = getRowValueList(sheet);
+            sheetMap.put(sheetName, rowValue);
         }
-        return sheetList;
+        return sheetMap;
     }
 
     /**

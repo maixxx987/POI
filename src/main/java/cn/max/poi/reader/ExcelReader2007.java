@@ -17,9 +17,7 @@ import org.xml.sax.helpers.DefaultHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
 
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 
 /**
@@ -89,7 +87,7 @@ public class ExcelReader2007 extends DefaultHandler {
     /**
      * 在解析多个sheet时使用，将每个sheet的内容存进List
      */
-    private List<List<List<String>>> sheetList = new ArrayList<>();
+    private Map<String, List<List<String>>> sheetMap = new LinkedHashMap<>();
 
     public void process(InputStream inputStream, int sheetId) throws Exception {
         OPCPackage opcPackage = OPCPackage.open(inputStream);
@@ -167,12 +165,11 @@ public class ExcelReader2007 extends DefaultHandler {
         SheetIterator sheetiterator = (SheetIterator) r.getSheetsData();
         while (sheetiterator.hasNext()) {
             InputStream sheet = sheetiterator.next();
-            System.out.println("当前表格名：" + sheetiterator.getSheetName());
             InputSource sheetSource = new InputSource(sheet);
             parser.parse(sheetSource);
             sheet.close();
-            // 添加进sheetList内，并清空rowList
-            sheetList.add(rowList);
+            // 添加进sheetMap内，并清空rowList
+            sheetMap.put(sheetiterator.getSheetName(), rowList);
             rowList = new ArrayList<>();
         }
     }
@@ -360,7 +357,7 @@ public class ExcelReader2007 extends DefaultHandler {
      *
      * @return 表集合
      */
-    public List<List<List<String>>> getSheetList() {
-        return sheetList;
+    public Map<String,List<List<String>>> getSheetMap() {
+        return sheetMap;
     }
 }
