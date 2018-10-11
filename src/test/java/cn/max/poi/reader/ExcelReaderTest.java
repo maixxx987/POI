@@ -1,4 +1,4 @@
-package cn.max.poi;
+package cn.max.poi.reader;
 
 import cn.max.poi.reader.ExcelReader;
 import cn.max.poi.reader.ExcelReader2003;
