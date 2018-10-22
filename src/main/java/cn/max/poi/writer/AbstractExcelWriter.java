@@ -86,8 +86,7 @@ public abstract class AbstractExcelWriter {
             List<List<String>> rowList,
             String exportPath) throws IOException {
         Sheet sheet = workbook.createSheet(sheetTitle);
-        createHeader(header, sheet, this.setHeaderStyle(workbook));
-        createBody(rowList, sheet, this.setBodyStyle(workbook));
+        this.createSheet(workbook, null, sheet, rowList, header);
         exportWorkbook(workbook, exportPath);
     }
 
@@ -108,8 +107,7 @@ public abstract class AbstractExcelWriter {
         for (String sheetTitle : sheetTitles) {
             Sheet sheet = workbook.createSheet(sheetTitle);
             for (String[] header : headers) {
-                createHeader(header, sheet, this.setHeaderStyle(workbook));
-                createBody(sheetData.get(sheetTitle), sheet, this.setBodyStyle(workbook));
+                this.createSheet(workbook, null, sheet, sheetData.get(sheetTitle), header);
             }
         }
         exportWorkbook(workbook, exportPath);
@@ -131,8 +129,7 @@ public abstract class AbstractExcelWriter {
             String exportPath) throws IOException {
         SXSSFSheet sheet = sxssfWorkbook.createSheet(sheetTitle);
         sheet.trackAllColumnsForAutoSizing();
-        createHeader(header, sheet, this.setHeaderStyle(sxssfWorkbook));
-        createBody(rowList, sheet, this.setBodyStyle(sxssfWorkbook));
+        this.createSheet(null, sxssfWorkbook, sheet, rowList, header);
         exportSXSSFWorkbook(sxssfWorkbook, exportPath);
     }
 
@@ -154,10 +151,34 @@ public abstract class AbstractExcelWriter {
             SXSSFSheet sheet = sxssfWorkbook.createSheet(sheetTitle);
             sheet.trackAllColumnsForAutoSizing();
             for (String[] header : headers) {
-                createHeader(header, sheet, this.setHeaderStyle(sxssfWorkbook));
-                createBody(sheetData.get(sheetTitle), sheet, this.setBodyStyle(sxssfWorkbook));
+                this.createSheet(null, sxssfWorkbook, sheet, sheetData.get(sheetTitle), header);
             }
         }
         exportSXSSFWorkbook(sxssfWorkbook, exportPath);
+    }
+
+
+    /**
+     * 写入workbook
+     *
+     * @param workbook      工作簿
+     * @param sxssfWorkbook sxssf工作簿
+     * @param sheet         单元表
+     * @param rowList       行集合
+     * @param header        表头
+     */
+    public void createSheet(Workbook workbook,
+                            SXSSFWorkbook sxssfWorkbook,
+                            Sheet sheet,
+                            List<List<String>> rowList,
+                            String[] header) {
+        if (workbook == null) {
+            createHeader(header, sheet, this.setHeaderStyle(sxssfWorkbook));
+            createBody(rowList, sheet, this.setBodyStyle(sxssfWorkbook));
+        } else {
+            createHeader(header, sheet, this.setHeaderStyle(workbook));
+            createBody(rowList, sheet, this.setBodyStyle(workbook));
+        }
+        autoSizeColumn(sheet, header.length);
     }
 }

@@ -1,6 +1,3 @@
 **JAVA POI 对Excel进行读取与写入**
 
-
-
-说明待完成……
-
+基于Apache POI的Excel读写工具类。

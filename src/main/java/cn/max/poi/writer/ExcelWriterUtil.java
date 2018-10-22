@@ -19,14 +19,14 @@ public class ExcelWriterUtil {
     /**
      * 创建表头
      *
-     * @param headers 表头
+     * @param header 表头
      * @param sheet   表
      */
-    public static void createHeader(String[] headers, Sheet sheet, CellStyle headerStyle) {
+    public static void createHeader(String[] header, Sheet sheet, CellStyle headerStyle) {
         Row row = sheet.createRow(0);
-        for (int i = 0; i < headers.length; i++) {
+        for (int i = 0; i < header.length; i++) {
             Cell cell = row.createCell(i);
-            cell.setCellValue(headers[i]);
+            cell.setCellValue(header[i]);
             cell.setCellStyle(headerStyle);
         }
     }
@@ -46,6 +46,17 @@ public class ExcelWriterUtil {
                 cell.setCellValue(dataList.get(j));
                 cell.setCellStyle(bodyStyle);
             }
+        }
+    }
+
+    /**
+     * 自适应单元格宽度
+     *
+     * @param sheet 单元表
+     * @param size  有多少列
+     */
+    public static void autoSizeColumn(Sheet sheet, int size) {
+        for (int i = 0; i < size; i++) {
             sheet.autoSizeColumn(i);
         }
     }
